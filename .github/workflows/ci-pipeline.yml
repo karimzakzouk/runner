@@ -1,254 +1,47 @@
-name: Test & Docker Pipeline
+name: Universal Docker CI
 
 on:
-  repository_dispatch:
-    types: [trigger-ci]
   workflow_dispatch:
     inputs:
       repo_name:
-        description: 'Private repository name (owner/repo)'
+        description: "Name of the private repo to clone (e.g. org/private-repo)"
         required: true
-        type: string
-      ref:
-        description: 'Branch, tag, or commit SHA'
-        required: true
-        default: 'main'
-        type: string
+      branch:
+        description: "Branch to build from"
+        required: false
+        default: main
 
 jobs:
-  checkout-private-repo:
-    name: Checkout Private Repository
+  build-test-push:
     runs-on: ubuntu-latest
+    env:
+      REPO_NAME: ${{ github.event.inputs.repo_name }}
+      BRANCH: ${{ github.event.inputs.branch }}
+      GITHUB_PAT: ${{ secrets.GITHUB_PAT }}
+      DOCKER_USER: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_PASS: ${{ secrets.DOCKER_PASSWORD }}
+
     steps:
-      - name: Checkout private repository
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ github.event.inputs.repo_name || github.event.client_payload.repo_name }}
-          ref: ${{ github.event.inputs.ref || github.event.client_payload.ref }}
-          token: ${{ secrets.PAT_GITHUB }}
-          path: private-repo
-
-      - name: Upload repository
-        uses: actions/upload-artifact@v4
-        with:
-          name: private-repo-code
-          path: private-repo/
-          retention-days: 1
-
-  test:
-    name: Run Tests
-    runs-on: ubuntu-latest
-    needs: checkout-private-repo
-    strategy:
-      matrix:
-        node-version: [18, 20, 22]
-    steps:
-      - name: Download repository
-        uses: actions/download-artifact@v4
-        with:
-          name: private-repo-code
-          path: private-repo
-
-  build-docker:
-    name: Build Docker Image
-    runs-on: ubuntu-latest
-    needs: [test]
-    outputs:
-      image-tag: ${{ steps.meta.outputs.tags }}
-    steps:
-      - name: Download repository
-        uses: actions/download-artifact@v4
-        with:
-          name: private-repo-code
-          path: private-repo
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Set image tag
-        id: tag
+      - name: Clone private repo
         run: |
-          REPO_NAME="${{ github.event.inputs.repo_name || github.event.client_payload.repo_name }}"
-          REF="${{ github.event.inputs.ref || github.event.client_payload.ref }}"
-          SHA="${{ github.event.client_payload.sha || github.sha }}"
-          
-          # Extract just the repo name (without owner)
-          IMAGE_NAME=$(echo "$REPO_NAME" | cut -d'/' -f2)
-          BRANCH=$(echo "$REF" | sed 's|refs/heads/||')
-          TAG="${BRANCH}-${SHA:0:7}"
-          
-          echo "image-name=${IMAGE_NAME}" >> $GITHUB_OUTPUT
-          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          git clone https://${GITHUB_PAT}@github.com/${REPO_NAME}.git app
+          cd app
+          git checkout ${BRANCH}
 
-      - name: Generate build metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: |
-            ${{ secrets.DOCKER_USERNAME }}/${{ steps.tag.outputs.image-name }}
-            ghcr.io/${{ github.event.client_payload.repo_name || github.event.inputs.repo_name }}
-          tags: type=raw,value=${{ steps.tag.outputs.tag }}
-
-      - name: Build Docker image (for testing)
-        uses: docker/build-push-action@v5
-        with:
-          context: private-repo
-          load: true
-          tags: test-image:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Save Docker image
+      - name: Build Docker image
+        working-directory: ./app
         run: |
-          docker save test-image:latest | gzip > docker-image.tar.gz
+          docker build -t ghcr.io/${REPO_NAME,,}:latest .
 
-      - name: Upload Docker image artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: docker-image
-          path: docker-image.tar.gz
-          retention-days: 1
-
-  test-docker:
-    name: Test Docker Image
-    runs-on: ubuntu-latest
-    needs: build-docker
-    steps:
-      - name: Download Docker image
-        uses: actions/download-artifact@v4
-        with:
-          name: docker-image
-
-      - name: Load Docker image
+      - name: Test Docker image
+        working-directory: ./app
         run: |
-          docker load < docker-image.tar.gz
-
-      - name: Run container health check
-        run: |
-          echo "Starting container..."
-          docker run -d --name test-container test-image:latest
-          
-          # Wait for container to be ready
-          sleep 5
-          
-          # Check if container is running
-          if [ "$(docker inspect -f '{{.State.Running}}' test-container)" = "true" ]; then
-            echo "✅ Container is running"
-          else
-            echo "❌ Container failed to start"
-            docker logs test-container
-            exit 1
-          fi
-
-      - name: Test container endpoints
-        run: |
-          # Get container IP or use localhost if ports are exposed
-          CONTAINER_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' test-container)
-          
-          echo "Testing container at $CONTAINER_IP"
-          
-          # Example health check - adjust URL and port to your app
-          # docker exec test-container curl -f http://localhost:3000/health || exit 1
-          
-          echo "✅ Container tests passed"
-
-      - name: Check container logs
-        if: always()
-        run: |
-          echo "=== Container Logs ==="
-          docker logs test-container
-
-      - name: Stop and remove container
-        if: always()
-        run: |
-          docker stop test-container || true
-          docker rm test-container || true
-
-      - name: Run security scan on image
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: 'test-image:latest'
-          format: 'table'
-          exit-code: '0'
-          severity: 'CRITICAL,HIGH'
-
-  push-docker:
-    name: Push Docker Images
-    runs-on: ubuntu-latest
-    needs: [test-docker]
-    steps:
-      - name: Download repository
-        uses: actions/download-artifact@v4
-        with:
-          name: private-repo-code
-          path: private-repo
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          docker run --rm ghcr.io/${REPO_NAME,,}:latest
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.PAT_GITHUB }}
-
-      - name: Set image tag
-        id: tag
         run: |
-          REPO_NAME="${{ github.event.inputs.repo_name || github.event.client_payload.repo_name }}"
-          REF="${{ github.event.inputs.ref || github.event.client_payload.ref }}"
-          SHA="${{ github.event.client_payload.sha || github.sha }}"
-          
-          # Extract just the repo name (without owner)
-          IMAGE_NAME=$(echo "$REPO_NAME" | cut -d'/' -f2)
-          BRANCH=$(echo "$REF" | sed 's|refs/heads/||')
-          TAG="${BRANCH}-${SHA:0:7}"
-          
-          echo "image-name=${IMAGE_NAME}" >> $GITHUB_OUTPUT
-          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "${DOCKER_PASS}" | docker login ghcr.io -u "${DOCKER_USER}" --password-stdin
 
-      - name: Generate metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: |
-            ${{ secrets.DOCKER_USERNAME }}/${{ steps.tag.outputs.image-name }}
-            ghcr.io/${{ github.event.client_payload.repo_name || github.event.inputs.repo_name }}
-          tags: type=raw,value=${{ steps.tag.outputs.tag }}
-
-      - name: Build and push to registries
-        uses: docker/build-push-action@v5
-        with:
-          context: private-repo
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Output image tags
+      - name: Push to GitHub Container Registry
         run: |
-          echo "🐳 Docker images pushed:"
-          echo "${{ steps.meta.outputs.tags }}"
-
-  cleanup:
-    name: Cleanup Artifacts
-    runs-on: ubuntu-latest
-    needs: [push-docker]
-    if: always()
-    steps:
-      - name: Delete temporary artifacts
-        uses: geekyeggo/delete-artifact@v5
-        with:
-          name: |
-            private-repo-code
-            docker-image
-          failOnError: false
+          docker push ghcr.io/${REPO_NAME,,}:latest
