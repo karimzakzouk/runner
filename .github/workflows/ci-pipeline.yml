@@ -17,7 +17,7 @@ jobs:
     env:
       REPO_NAME: ${{ github.event.inputs.repo_name }}
       BRANCH: ${{ github.event.inputs.branch }}
-      GITHUB_PAT: ${{ secrets.GITHUB_PAT }}
+      GITHUB_PAT: ${{ secrets.PAT_GITHUB }}
       DOCKER_USER: ${{ secrets.DOCKER_USERNAME }}
       DOCKER_PASS: ${{ secrets.DOCKER_PASSWORD }}
 
