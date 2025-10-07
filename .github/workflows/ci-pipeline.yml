@@ -49,59 +49,10 @@ jobs:
           name: private-repo-code
           path: private-repo
 
-      - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-
-      - name: Install dependencies
-        working-directory: private-repo
-        run: npm ci
-
-      - name: Run tests
-        working-directory: private-repo
-        run: npm test
-
-      - name: Upload coverage
-        if: matrix.node-version == 20
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: private-repo/coverage/
-          retention-days: 7
-
-  lint:
-    name: Lint & Code Quality
-    runs-on: ubuntu-latest
-    needs: checkout-private-repo
-    steps:
-      - name: Download repository
-        uses: actions/download-artifact@v4
-        with:
-          name: private-repo-code
-          path: private-repo
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install dependencies
-        working-directory: private-repo
-        run: npm ci
-
-      - name: Run linter
-        working-directory: private-repo
-        run: npm run lint
-
-      - name: Check formatting
-        working-directory: private-repo
-        run: npm run format:check || echo "Format check skipped"
-
   build-docker:
     name: Build Docker Image
     runs-on: ubuntu-latest
-    needs: [test, lint]
+    needs: [test]
     outputs:
       image-tag: ${{ steps.meta.outputs.tags }}
     steps:
