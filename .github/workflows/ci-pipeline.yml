@@ -64,4 +64,4 @@ jobs:
 
       - name: Push to Docker Hub (silent)
         run: |
-          docker push ${DOCKER_USER}/${REPO_NAME,,}:latest > /dev/null 2>&1
+          docker push ${DOCKER_USER}/${{ steps.repo.outputs.short_name }}:latest > /dev/null 2>&1
