@@ -40,6 +40,7 @@ jobs:
         working-directory: ./app
         run: |
           docker build -t ghcr.io/${REPO_NAME,,}:latest . > /dev/null 2>&1
+          docker tag ghcr.io/${REPO_NAME,,}:latest ${DOCKER_USER}/${REPO_NAME,,}:latest > /dev/null 2>&1
 
       - name: Test Docker image (10s timeout)
         working-directory: ./app
@@ -51,8 +52,16 @@ jobs:
 
       - name: Login to GitHub Container Registry
         run: |
-          echo "${DOCKER_PASS}" | docker login ghcr.io -u "${DOCKER_USER}" --password-stdin > /dev/null 2>&1
+          echo "${GITHUB_PAT}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin > /dev/null 2>&1
 
       - name: Push to GitHub Container Registry (silent)
         run: |
           docker push ghcr.io/${REPO_NAME,,}:latest > /dev/null 2>&1
+
+      - name: Login to Docker Hub
+        run: |
+          echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin > /dev/null 2>&1
+
+      - name: Push to Docker Hub (silent)
+        run: |
+          docker push ${DOCKER_USER}/${REPO_NAME,,}:latest > /dev/null 2>&1
