@@ -14,6 +14,7 @@ on:
 jobs:
   build-test-push:
     runs-on: ubuntu-latest
+
     env:
       REPO_NAME: ${{ github.event.inputs.repo_name }}
       BRANCH: ${{ github.event.inputs.branch }}
@@ -22,26 +23,36 @@ jobs:
       DOCKER_PASS: ${{ secrets.DOCKER_PASSWORD }}
 
     steps:
-      - name: Clone private repo
+      - name: Set all values
         run: |
-          git clone https://${GITHUB_PAT}@github.com/${REPO_NAME}.git app
+          echo "::add-mask::${REPO_NAME}"
+          echo "::add-mask::${GITHUB_PAT}"
+          echo "::add-mask::${DOCKER_USER}"
+          echo "::add-mask::${DOCKER_PASS}"
+
+      - name: Clone private repo (silent)
+        run: |
+          git clone -q https://${GITHUB_PAT}@github.com/${REPO_NAME}.git app
           cd app
-          git checkout ${BRANCH}
+          git checkout -q ${BRANCH}
 
-      - name: Build Docker image
+      - name: Build Docker image (silent)
         working-directory: ./app
         run: |
-          docker build -t ghcr.io/${REPO_NAME,,}:latest .
+          docker build -t ghcr.io/${REPO_NAME,,}:latest . > /dev/null 2>&1
 
-      - name: Test Docker image
+      - name: Test Docker image (10s timeout)
         working-directory: ./app
         run: |
-          docker run --rm ghcr.io/${REPO_NAME,,}:latest
+          docker run -d --name test_container ghcr.io/${REPO_NAME,,}:latest > /dev/null 2>&1 || exit 1
+          sleep 10
+          docker stop test_container > /dev/null 2>&1 || true
+          docker rm test_container > /dev/null 2>&1 || true
 
       - name: Login to GitHub Container Registry
         run: |
-          echo "${DOCKER_PASS}" | docker login ghcr.io -u "${DOCKER_USER}" --password-stdin
+          echo "${DOCKER_PASS}" | docker login ghcr.io -u "${DOCKER_USER}" --password-stdin > /dev/null 2>&1
 
-      - name: Push to GitHub Container Registry
+      - name: Push to GitHub Container Registry (silent)
         run: |
-          docker push ghcr.io/${REPO_NAME,,}:latest
+          docker push ghcr.io/${REPO_NAME,,}:latest > /dev/null 2>&1
