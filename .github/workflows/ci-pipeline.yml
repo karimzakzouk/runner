@@ -41,16 +41,23 @@ jobs:
           cd app
           git checkout -q ${BRANCH}
 
+      - name: Get short commit SHA
+        id: vars
+        working-directory: ./app
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
       - name: Build Docker image (silent)
         working-directory: ./app
         run: |
-          docker build -t ghcr.io/${OWNER_NAME,,}/${REPO_NAME,,}:latest . > /dev/null 2>&1
-          docker tag ghcr.io/${OWNER_NAME,,}/${REPO_NAME,,}:latest ${DOCKER_USER}/${REPO_NAME,,}:latest
+          TAG=${{ steps.vars.outputs.sha_short }}
+          docker build -t ghcr.io/${OWNER_NAME,,}/${REPO_NAME,,}:${TAG} . > /dev/null 2>&1
+          docker tag ghcr.io/${OWNER_NAME,,}/${REPO_NAME,,}:${TAG} ${DOCKER_USER}/${REPO_NAME,,}:${TAG}
 
       - name: Test Docker image (10s timeout)
         working-directory: ./app
         run: |
-          docker run -d --name test_container ghcr.io/${OWNER_NAME,,}/${REPO_NAME,,}:latest > /dev/null 2>&1 || exit 1
+          TAG=${{ steps.vars.outputs.sha_short }}
+          docker run -d --name test_container ghcr.io/${OWNER_NAME,,}/${REPO_NAME,,}:${TAG} > /dev/null 2>&1 || exit 1
           sleep 10
           docker stop test_container > /dev/null 2>&1 || true
           docker rm test_container > /dev/null 2>&1 || true
@@ -61,7 +68,8 @@ jobs:
 
       - name: Push to GitHub Container Registry (silent)
         run: |
-          docker push ghcr.io/${OWNER_NAME,,}/${REPO_NAME,,}:latest > /dev/null 2>&1
+          TAG=${{ steps.vars.outputs.sha_short }}
+          docker push ghcr.io/${OWNER_NAME,,}/${REPO_NAME,,}:${TAG} > /dev/null 2>&1
 
       - name: Login to Docker Hub
         run: |
@@ -69,4 +77,5 @@ jobs:
 
       - name: Push to Docker Hub (silent)
         run: |
-          docker push ${DOCKER_USER}/${REPO_NAME,,}:latest > /dev/null 2>&1
+          TAG=${{ steps.vars.outputs.sha_short }}
+          docker push ${DOCKER_USER}/${REPO_NAME,,}:${TAG} > /dev/null 2>&1
