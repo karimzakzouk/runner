@@ -1,6 +1,4 @@
-
 name: Universal Docker CI
-
 on:
   workflow_dispatch:
     inputs:
@@ -16,12 +14,9 @@ on:
         default: main
   repository_dispatch:
     types: [trigger-build]
-
 jobs:
   build-test-push:
     runs-on: ubuntu-latest
-
-
     env:
       OWNER_NAME: ${{ github.event.inputs.owner_name || github.event.client_payload.owner_name }}
       REPO_NAME: ${{ github.event.inputs.repo_name || github.event.client_payload.repo_name }}
@@ -29,7 +24,6 @@ jobs:
       GITHUB_PAT: ${{ secrets.PAT_GITHUB }}
       DOCKER_USER: ${{ secrets.DOCKER_USERNAME }}
       DOCKER_PASS: ${{ secrets.DOCKER_PASSWORD }}
-
     steps:
       - name: Mask sensitive values
         run: |
@@ -38,48 +32,78 @@ jobs:
           echo "::add-mask::${GITHUB_PAT}"
           echo "::add-mask::${DOCKER_USER}"
           echo "::add-mask::${DOCKER_PASS}"
-
+      
       - name: Clone private repo (silent)
         run: |
           git clone -q https://${GITHUB_PAT}@github.com/${OWNER_NAME}/${REPO_NAME}.git app
           cd app
           git checkout -q ${BRANCH}
-
-      - name: Get short commit SHA
+      
+      - name: Get short commit SHA and determine tags
         id: vars
         working-directory: ./app
-        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-
+        run: |
+          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          if [ "${BRANCH}" = "main" ]; then
+            echo "env_tag=prod" >> $GITHUB_OUTPUT
+            echo "moving_tag=latest" >> $GITHUB_OUTPUT
+          elif [ "${BRANCH}" = "dev" ]; then
+            echo "env_tag=dev" >> $GITHUB_OUTPUT
+            echo "moving_tag=dev" >> $GITHUB_OUTPUT
+          else
+            echo "env_tag=${BRANCH}" >> $GITHUB_OUTPUT
+            echo "moving_tag=${BRANCH}" >> $GITHUB_OUTPUT
+          fi
+      
       - name: Build Docker image (silent)
         working-directory: ./app
         run: |
-          TAG=${{ steps.vars.outputs.sha_short }}
-          docker build -t ghcr.io/${OWNER_NAME,,}/${REPO_NAME,,}:${TAG} . > /dev/null 2>&1
-          docker tag ghcr.io/${OWNER_NAME,,}/${REPO_NAME,,}:${TAG} ${DOCKER_USER}/${REPO_NAME,,}:${TAG}
-
+          COMMIT_TAG=${{ steps.vars.outputs.sha_short }}
+          ENV_TAG=${{ steps.vars.outputs.env_tag }}
+          MOVING_TAG=${{ steps.vars.outputs.moving_tag }}
+          
+          # Build with commit SHA + environment
+          docker build -t ghcr.io/${OWNER_NAME,,}/${REPO_NAME,,}:${COMMIT_TAG}-${ENV_TAG} . > /dev/null 2>&1
+          
+          # Tag with moving tag (latest for main, dev for dev branch)
+          docker tag ghcr.io/${OWNER_NAME,,}/${REPO_NAME,,}:${COMMIT_TAG}-${ENV_TAG} ghcr.io/${OWNER_NAME,,}/${REPO_NAME,,}:${MOVING_TAG}
+          
+          # Tag for Docker Hub
+          docker tag ghcr.io/${OWNER_NAME,,}/${REPO_NAME,,}:${COMMIT_TAG}-${ENV_TAG} ${DOCKER_USER}/${REPO_NAME,,}:${COMMIT_TAG}-${ENV_TAG}
+          docker tag ghcr.io/${OWNER_NAME,,}/${REPO_NAME,,}:${COMMIT_TAG}-${ENV_TAG} ${DOCKER_USER}/${REPO_NAME,,}:${MOVING_TAG}
+      
       - name: Test Docker image (10s timeout)
         working-directory: ./app
         run: |
-          TAG=${{ steps.vars.outputs.sha_short }}
-          docker run -d --name test_container ghcr.io/${OWNER_NAME,,}/${REPO_NAME,,}:${TAG} > /dev/null 2>&1 || exit 1
+          COMMIT_TAG=${{ steps.vars.outputs.sha_short }}
+          ENV_TAG=${{ steps.vars.outputs.env_tag }}
+          docker run -d --name test_container ghcr.io/${OWNER_NAME,,}/${REPO_NAME,,}:${COMMIT_TAG}-${ENV_TAG} > /dev/null 2>&1 || exit 1
           sleep 10
           docker stop test_container > /dev/null 2>&1 || true
           docker rm test_container > /dev/null 2>&1 || true
-
+      
       - name: Login to GitHub Container Registry
         run: |
           echo "${GITHUB_PAT}" | docker login ghcr.io -u "${OWNER_NAME}" --password-stdin > /dev/null 2>&1
-
+      
       - name: Push to GitHub Container Registry (silent)
         run: |
-          TAG=${{ steps.vars.outputs.sha_short }}
-          docker push ghcr.io/${OWNER_NAME,,}/${REPO_NAME,,}:${TAG} > /dev/null 2>&1
-
+          COMMIT_TAG=${{ steps.vars.outputs.sha_short }}
+          ENV_TAG=${{ steps.vars.outputs.env_tag }}
+          MOVING_TAG=${{ steps.vars.outputs.moving_tag }}
+          
+          docker push ghcr.io/${OWNER_NAME,,}/${REPO_NAME,,}:${COMMIT_TAG}-${ENV_TAG} > /dev/null 2>&1
+          docker push ghcr.io/${OWNER_NAME,,}/${REPO_NAME,,}:${MOVING_TAG} > /dev/null 2>&1
+      
       - name: Login to Docker Hub
         run: |
           echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin > /dev/null 2>&1
-
+      
       - name: Push to Docker Hub (silent)
         run: |
-          TAG=${{ steps.vars.outputs.sha_short }}
-          docker push ${DOCKER_USER}/${REPO_NAME,,}:${TAG} > /dev/null 2>&1
+          COMMIT_TAG=${{ steps.vars.outputs.sha_short }}
+          ENV_TAG=${{ steps.vars.outputs.env_tag }}
+          MOVING_TAG=${{ steps.vars.outputs.moving_tag }}
+          
+          docker push ${DOCKER_USER}/${REPO_NAME,,}:${COMMIT_TAG}-${ENV_TAG} > /dev/null 2>&1
+          docker push ${DOCKER_USER}/${REPO_NAME,,}:${MOVING_TAG} > /dev/null 2>&1
