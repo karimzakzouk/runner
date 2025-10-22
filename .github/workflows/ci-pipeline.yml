@@ -67,13 +67,6 @@ jobs:
           cd devops
           chmod +x build.sh
           bash build.sh
-  
-      
-      - name: Clone devops repo (silent)
-        run: |
-          git clone -q https://${GITHUB_PAT}@github.com/${OWNER_NAME}/${DEVOPS_REPO}.git devops
-          cd devops
-          git checkout -q ${DEVOPS_BRANCH}
       
       - name: Execute deployment script
         env:
