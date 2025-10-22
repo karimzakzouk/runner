@@ -18,6 +18,11 @@ jobs:
       GITHUB_PAT: ${{ secrets.PAT_GITHUB }}
       DOCKER_USER: ${{ secrets.DOCKER_USERNAME }}
       DOCKER_PASS: ${{ secrets.DOCKER_PASSWORD }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
+      AZURE_CLUSTER_NAME: ${{ secrets.AZURE_CLUSTER_NAME }}
     steps:
       - name: Mask sensitive values
         run: |
@@ -27,6 +32,9 @@ jobs:
           echo "::add-mask::${GITHUB_PAT}"
           echo "::add-mask::${DOCKER_USER}"
           echo "::add-mask::${DOCKER_PASS}"
+          echo "::add-mask::${AZURE_CLIENT_ID}"
+          echo "::add-mask::${AZURE_CLIENT_SECRET}"
+          echo "::add-mask::${AZURE_TENANT_ID}"
       
       - name: Clone private repo (silent)
         run: |
