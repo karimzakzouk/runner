@@ -13,7 +13,6 @@ jobs:
       OWNER_NAME: ${{ github.event.client_payload.owner_name }}
       REPO_NAME: ${{ github.event.client_payload.repo_name }}
       BRANCH: ${{ github.event.client_payload.branch || 'main' }}
-      TEAM: ${{ github.event.client_payload.team }}
       DEVOPS_REPO: ${{ github.event.client_payload.devops_repo || 'devops' }}
       DEVOPS_BRANCH: ${{ github.event.client_payload.devops_branch || 'main' }}
       GITHUB_PAT: ${{ secrets.PAT_GITHUB }}
@@ -24,7 +23,6 @@ jobs:
         run: |
           echo "::add-mask::${OWNER_NAME}"
           echo "::add-mask::${REPO_NAME}"
-          echo "::add-mask::${TEAM}"
           echo "::add-mask::${DEVOPS_REPO}"
           echo "::add-mask::${GITHUB_PAT}"
           echo "::add-mask::${DOCKER_USER}"
@@ -73,6 +71,6 @@ jobs:
           IMAGE_TAG: ${{ steps.vars.outputs.sha_short }}-${{ steps.vars.outputs.env_tag }}
         run: |
           export IMAGE_REPO="${DOCKER_USER}/${REPO_NAME,,}"
-          cd devops/${TEAM}
+          cd devops/${REPO_NAME}
           chmod +x deploy.sh
           bash deploy.sh
