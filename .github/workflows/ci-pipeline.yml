@@ -69,6 +69,7 @@ jobs:
       - name: Execute deployment script
         env:
           IMAGE_TAG: ${{ steps.vars.outputs.sha_short }}-${{ steps.vars.outputs.env_tag }}
+          ENV_TAG: ${{ steps.vars.outputs.env_tag }}
         run: |
           export IMAGE_REPO="${DOCKER_USER}/${REPO_NAME,,}"
           cd devops/${REPO_NAME}
