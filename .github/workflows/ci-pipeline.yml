@@ -24,23 +24,11 @@ jobs:
       AZURE_RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
       AZURE_CLUSTER_NAME: ${{ secrets.AZURE_CLUSTER_NAME }}
     steps:
-      - name: Mask sensitive values
+      - name: Clone private repo
         run: |
-          echo "::add-mask::${OWNER_NAME}"
-          echo "::add-mask::${REPO_NAME}"
-          echo "::add-mask::${DEVOPS_REPO}"
-          echo "::add-mask::${GITHUB_PAT}"
-          echo "::add-mask::${DOCKER_USER}"
-          echo "::add-mask::${DOCKER_PASS}"
-          echo "::add-mask::${AZURE_CLIENT_ID}"
-          echo "::add-mask::${AZURE_CLIENT_SECRET}"
-          echo "::add-mask::${AZURE_TENANT_ID}"
-      
-      - name: Clone private repo (silent)
-        run: |
-          git clone -q https://${GITHUB_PAT}@github.com/${OWNER_NAME}/${REPO_NAME}.git app
+          git clone https://${GITHUB_PAT}@github.com/${OWNER_NAME}/${REPO_NAME}.git app
           cd app
-          git checkout -q ${BRANCH}
+          git checkout ${BRANCH}
       
       - name: Get short commit SHA and determine tags
         id: vars
@@ -58,11 +46,11 @@ jobs:
             echo "moving_tag=${BRANCH}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Clone devops repo (silent)
+      - name: Clone devops repo
         run: |
-          git clone -q https://${GITHUB_PAT}@github.com/${OWNER_NAME}/${DEVOPS_REPO}.git devops
+          git clone https://${GITHUB_PAT}@github.com/${OWNER_NAME}/${DEVOPS_REPO}.git devops
           cd devops
-          git checkout -q ${DEVOPS_BRANCH}
+          git checkout ${DEVOPS_BRANCH}
       
       - name: Execute build script
         env:
