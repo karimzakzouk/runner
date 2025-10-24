@@ -23,12 +23,33 @@ jobs:
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       AZURE_RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
       AZURE_CLUSTER_NAME: ${{ secrets.AZURE_CLUSTER_NAME }}
+      NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
+      NEXT_PUBLIC_API_VERSION: ${{ secrets.NEXT_PUBLIC_API_VERSION }}
+      NEXT_PUBLIC_API_TIMEOUT: ${{ secrets.NEXT_PUBLIC_API_TIMEOUT }}
+      NEXT_PUBLIC_API_RETRY_ATTEMPTS: ${{ secrets.NEXT_PUBLIC_API_RETRY_ATTEMPTS }}
+      NEXT_PUBLIC_API_DEBUG: ${{ secrets.NEXT_PUBLIC_API_DEBUG }}
+      NEXT_PUBLIC_RECAPTCHA_SITE_KEY: ${{ secrets.NEXT_PUBLIC_RECAPTCHA_SITE_KEY }}
+      NEXT_PUBLIC_SKIP_VERIFICATION_STEPS: ${{ secrets.NEXT_PUBLIC_SKIP_VERIFICATION_STEPS }}
+      NEXT_PUBLIC_AUTH_SUCCESS_REDIRECT: ${{ secrets.NEXT_PUBLIC_AUTH_SUCCESS_REDIRECT }}
     steps:
-      - name: Clone private repo
+      - name: Mask sensitive values
         run: |
-          git clone https://${GITHUB_PAT}@github.com/${OWNER_NAME}/${REPO_NAME}.git app
+          echo "::add-mask::${OWNER_NAME}"
+          echo "::add-mask::${REPO_NAME}"
+          echo "::add-mask::${DEVOPS_REPO}"
+          echo "::add-mask::${GITHUB_PAT}"
+          echo "::add-mask::${DOCKER_USER}"
+          echo "::add-mask::${DOCKER_PASS}"
+          echo "::add-mask::${AZURE_CLIENT_ID}"
+          echo "::add-mask::${AZURE_CLIENT_SECRET}"
+          echo "::add-mask::${AZURE_TENANT_ID}"
+          echo "::add-mask::${NEXT_PUBLIC_RECAPTCHA_SITE_KEY}"
+      
+      - name: Clone private repo (silent)
+        run: |
+          git clone -q https://${GITHUB_PAT}@github.com/${OWNER_NAME}/${REPO_NAME}.git app
           cd app
-          git checkout ${BRANCH}
+          git checkout -q ${BRANCH}
       
       - name: Get short commit SHA and determine tags
         id: vars
@@ -46,11 +67,11 @@ jobs:
             echo "moving_tag=${BRANCH}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Clone devops repo
+      - name: Clone devops repo (silent)
         run: |
-          git clone https://${GITHUB_PAT}@github.com/${OWNER_NAME}/${DEVOPS_REPO}.git devops
+          git clone -q https://${GITHUB_PAT}@github.com/${OWNER_NAME}/${DEVOPS_REPO}.git devops
           cd devops
-          git checkout ${DEVOPS_BRANCH}
+          git checkout -q ${DEVOPS_BRANCH}
       
       - name: Execute build script
         env:
