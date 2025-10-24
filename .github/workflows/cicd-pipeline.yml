@@ -79,7 +79,7 @@ jobs:
           ENV_TAG: ${{ steps.vars.outputs.env_tag }}
           MOVING_TAG: ${{ steps.vars.outputs.moving_tag }}
         run: |
-          cd devops
+          cd devops/${REPO_NAME}
           chmod +x build.sh
           bash build.sh
       
