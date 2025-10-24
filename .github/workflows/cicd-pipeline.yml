@@ -4,7 +4,7 @@ on:
     types: [trigger-build]
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     outputs:
       commit_tag: ${{ steps.vars.outputs.sha_short }}
       env_tag: ${{ steps.vars.outputs.env_tag }}
