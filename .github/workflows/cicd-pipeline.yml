@@ -32,10 +32,9 @@ jobs:
       NEXT_PUBLIC_SKIP_VERIFICATION_STEPS: ${{ secrets.NEXT_PUBLIC_SKIP_VERIFICATION_STEPS }}
       NEXT_PUBLIC_AUTH_SUCCESS_REDIRECT: ${{ secrets.NEXT_PUBLIC_AUTH_SUCCESS_REDIRECT }}
       NEXT_PUBLIC_AUTH_REGISTER_REDIRECT: ${{ secrets.NEXT_PUBLIC_AUTH_REGISTER_REDIRECT }}
-      TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
-      TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
-      TWILIO_WHATSAPP_FROM: ${{ secrets.TWILIO_WHATSAPP_FROM }}
-      TWILIO_WHATSAPP_TO: ${{ secrets.TWILIO_WHATSAPP_TO }}
+      FACEBOOK_PHONE_NUMBER_ID: ${{ secrets.FACEBOOK_PHONE_NUMBER_ID }}
+      FACEBOOK_ACCESS_TOKEN: ${{ secrets.FACEBOOK_ACCESS_TOKEN }}
+      FACEBOOK_WHATSAPP_TO: ${{ secrets.FACEBOOK_WHATSAPP_TO }}
     steps:
       - name: Mask sensitive values
         run: |
@@ -103,36 +102,33 @@ jobs:
         run: |
           COMMIT_SHA="${{ steps.vars.outputs.sha_short }}"
           ENV_TAG="${{ steps.vars.outputs.env_tag }}"
-          MESSAGE="✅ Build Successful\n\nRepo: ${REPO_NAME}\nBranch: ${BRANCH}\nCommit: ${COMMIT_SHA}\nEnvironment: ${ENV_TAG}\nTime: $(date)\n\nNo errors detected."
+          MESSAGE="✅ Build Successful%0ARepo: ${REPO_NAME}%0ABranch: ${BRANCH}%0ACommit: ${COMMIT_SHA}%0AEnvironment: ${ENV_TAG}%0ATime: $(date)%0A%0ANo errors detected."
           
-          curl -X POST https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json \
-            -d "From=${TWILIO_WHATSAPP_FROM}" \
-            -d "To=${TWILIO_WHATSAPP_TO}" \
-            -d "Body=${MESSAGE}" \
-            -u "${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}"
+          curl -i -X POST https://graph.facebook.com/v22.0/${FACEBOOK_PHONE_NUMBER_ID}/messages \
+            -H "Authorization: Bearer ${FACEBOOK_ACCESS_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "{\"messaging_product\": \"whatsapp\", \"to\": \"${FACEBOOK_WHATSAPP_TO}\", \"type\": \"text\", \"text\": {\"body\": \"${MESSAGE}\"}}"
       
       - name: Send WhatsApp notification on build failure
         if: failure() && steps.vars.conclusion == 'success'
         run: |
           COMMIT_SHA="${{ steps.vars.outputs.sha_short }}"
           ENV_TAG="${{ steps.vars.outputs.env_tag }}"
-          MESSAGE="❌ Build Failed\n\nRepo: ${REPO_NAME}\nBranch: ${BRANCH}\nCommit: ${COMMIT_SHA}\nEnvironment: ${ENV_TAG}\n\nFailed Step: Execute build script\n\nCheck logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          MESSAGE="❌ Build Failed%0ARepo: ${REPO_NAME}%0ABranch: ${BRANCH}%0ACommit: ${COMMIT_SHA}%0AEnvironment: ${ENV_TAG}%0A%0AFailed Step: Execute build script%0A%0ACheck logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           
-          curl -X POST https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json \
-            -d "From=${TWILIO_WHATSAPP_FROM}" \
-            -d "To=${TWILIO_WHATSAPP_TO}" \
-            -d "Body=${MESSAGE}" \
-            -u "${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}"
+          curl -i -X POST https://graph.facebook.com/v22.0/${FACEBOOK_PHONE_NUMBER_ID}/messages \
+            -H "Authorization: Bearer ${FACEBOOK_ACCESS_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "{\"messaging_product\": \"whatsapp\", \"to\": \"${FACEBOOK_WHATSAPP_TO}\", \"type\": \"text\", \"text\": {\"body\": \"${MESSAGE}\"}}"
       
       - name: Send WhatsApp notification on deployment failure
         if: failure()
         run: |
           COMMIT_SHA="${{ steps.vars.outputs.sha_short }}"
           ENV_TAG="${{ steps.vars.outputs.env_tag }}"
-          MESSAGE="❌ Deployment Failed\n\nRepo: ${REPO_NAME}\nBranch: ${BRANCH}\nCommit: ${COMMIT_SHA}\nEnvironment: ${ENV_TAG}\n\nFailed Step: Execute deployment script\n\nCheck logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          MESSAGE="❌ Deployment Failed%0ARepo: ${REPO_NAME}%0ABranch: ${BRANCH}%0ACommit: ${COMMIT_SHA}%0AEnvironment: ${ENV_TAG}%0A%0AFailed Step: Execute deployment script%0A%0ACheck logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           
-          curl -X POST https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json \
-            -d "From=${TWILIO_WHATSAPP_FROM}" \
-            -d "To=${TWILIO_WHATSAPP_TO}" \
-            -d "Body=${MESSAGE}" \
-            -u "${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}"
+          curl -i -X POST https://graph.facebook.com/v22.0/${FACEBOOK_PHONE_NUMBER_ID}/messages \
+            -H "Authorization: Bearer ${FACEBOOK_ACCESS_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "{\"messaging_product\": \"whatsapp\", \"to\": \"${FACEBOOK_WHATSAPP_TO}\", \"type\": \"text\", \"text\": {\"body\": \"${MESSAGE}\"}}"
