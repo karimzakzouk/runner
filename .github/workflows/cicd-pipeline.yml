@@ -32,9 +32,7 @@ jobs:
       NEXT_PUBLIC_SKIP_VERIFICATION_STEPS: ${{ secrets.NEXT_PUBLIC_SKIP_VERIFICATION_STEPS }}
       NEXT_PUBLIC_AUTH_SUCCESS_REDIRECT: ${{ secrets.NEXT_PUBLIC_AUTH_SUCCESS_REDIRECT }}
       NEXT_PUBLIC_AUTH_REGISTER_REDIRECT: ${{ secrets.NEXT_PUBLIC_AUTH_REGISTER_REDIRECT }}
-      FACEBOOK_PHONE_NUMBER_ID: ${{ secrets.FACEBOOK_PHONE_NUMBER_ID }}
-      FACEBOOK_ACCESS_TOKEN: ${{ secrets.FACEBOOK_ACCESS_TOKEN }}
-      FACEBOOK_WHATSAPP_TO: ${{ secrets.FACEBOOK_WHATSAPP_TO }}
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
     steps:
       - name: Mask sensitive values
         run: |
@@ -97,38 +95,70 @@ jobs:
           chmod +x deploy.sh
           bash deploy.sh
       
-      - name: Send WhatsApp notification on success
+      - name: Send Discord notification on success
         if: success()
         run: |
           COMMIT_SHA="${{ steps.vars.outputs.sha_short }}"
           ENV_TAG="${{ steps.vars.outputs.env_tag }}"
-          MESSAGE="Build Successful - Repo: ${REPO_NAME}, Branch: ${BRANCH}, Commit: ${COMMIT_SHA}, Env: ${ENV_TAG}"
           
-          curl -X POST https://graph.facebook.com/v22.0/${FACEBOOK_PHONE_NUMBER_ID}/messages \
-            -H "Authorization: Bearer ${FACEBOOK_ACCESS_TOKEN}" \
+          curl -X POST "${DISCORD_WEBHOOK_URL}" \
             -H "Content-Type: application/json" \
-            -d "{\"messaging_product\": \"whatsapp\", \"to\": \"${FACEBOOK_WHATSAPP_TO}\", \"type\": \"text\", \"text\": {\"body\": \"${MESSAGE}\"}}"
+            -d "{
+              \"embeds\": [{
+                \"title\": \"✅ Build Successful\",
+                \"color\": 3066993,
+                \"fields\": [
+                  {\"name\": \"Repository\", \"value\": \"${REPO_NAME}\", \"inline\": true},
+                  {\"name\": \"Branch\", \"value\": \"${BRANCH}\", \"inline\": true},
+                  {\"name\": \"Commit\", \"value\": \"${COMMIT_SHA}\", \"inline\": true},
+                  {\"name\": \"Environment\", \"value\": \"${ENV_TAG}\", \"inline\": true},
+                  {\"name\": \"Status\", \"value\": \"No errors detected\", \"inline\": false}
+                ]
+              }]
+            }"
       
-      - name: Send WhatsApp notification on build failure
+      - name: Send Discord notification on build failure
         if: failure() && steps.vars.conclusion == 'success'
         run: |
           COMMIT_SHA="${{ steps.vars.outputs.sha_short }}"
           ENV_TAG="${{ steps.vars.outputs.env_tag }}"
-          MESSAGE="Build Failed - Repo: ${REPO_NAME}, Branch: ${BRANCH}, Commit: ${COMMIT_SHA}"
           
-          curl -X POST https://graph.facebook.com/v22.0/${FACEBOOK_PHONE_NUMBER_ID}/messages \
-            -H "Authorization: Bearer ${FACEBOOK_ACCESS_TOKEN}" \
+          curl -X POST "${DISCORD_WEBHOOK_URL}" \
             -H "Content-Type: application/json" \
-            -d "{\"messaging_product\": \"whatsapp\", \"to\": \"${FACEBOOK_WHATSAPP_TO}\", \"type\": \"text\", \"text\": {\"body\": \"${MESSAGE}\"}}"
+            -d "{
+              \"embeds\": [{
+                \"title\": \"❌ Build Failed\",
+                \"color\": 15158332,
+                \"fields\": [
+                  {\"name\": \"Repository\", \"value\": \"${REPO_NAME}\", \"inline\": true},
+                  {\"name\": \"Branch\", \"value\": \"${BRANCH}\", \"inline\": true},
+                  {\"name\": \"Commit\", \"value\": \"${COMMIT_SHA}\", \"inline\": true},
+                  {\"name\": \"Environment\", \"value\": \"${ENV_TAG}\", \"inline\": true},
+                  {\"name\": \"Failed Step\", \"value\": \"Execute build script\", \"inline\": false},
+                  {\"name\": \"Logs\", \"value\": \"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\", \"inline\": false}
+                ]
+              }]
+            }"
       
-      - name: Send WhatsApp notification on deployment failure
+      - name: Send Discord notification on deployment failure
         if: failure()
         run: |
           COMMIT_SHA="${{ steps.vars.outputs.sha_short }}"
           ENV_TAG="${{ steps.vars.outputs.env_tag }}"
-          MESSAGE="Deployment Failed - Repo: ${REPO_NAME}, Branch: ${BRANCH}, Commit: ${COMMIT_SHA}"
           
-          curl -X POST https://graph.facebook.com/v22.0/${FACEBOOK_PHONE_NUMBER_ID}/messages \
-            -H "Authorization: Bearer ${FACEBOOK_ACCESS_TOKEN}" \
+          curl -X POST "${DISCORD_WEBHOOK_URL}" \
             -H "Content-Type: application/json" \
-            -d "{\"messaging_product\": \"whatsapp\", \"to\": \"${FACEBOOK_WHATSAPP_TO}\", \"type\": \"text\", \"text\": {\"body\": \"${MESSAGE}\"}}"
+            -d "{
+              \"embeds\": [{
+                \"title\": \"❌ Deployment Failed\",
+                \"color\": 15158332,
+                \"fields\": [
+                  {\"name\": \"Repository\", \"value\": \"${REPO_NAME}\", \"inline\": true},
+                  {\"name\": \"Branch\", \"value\": \"${BRANCH}\", \"inline\": true},
+                  {\"name\": \"Commit\", \"value\": \"${COMMIT_SHA}\", \"inline\": true},
+                  {\"name\": \"Environment\", \"value\": \"${ENV_TAG}\", \"inline\": true},
+                  {\"name\": \"Failed Step\", \"value\": \"Execute deployment script\", \"inline\": false},
+                  {\"name\": \"Logs\", \"value\": \"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\", \"inline\": false}
+                ]
+              }]
+            }"
