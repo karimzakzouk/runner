@@ -31,6 +31,11 @@ jobs:
       NEXT_PUBLIC_RECAPTCHA_SITE_KEY: ${{ secrets.NEXT_PUBLIC_RECAPTCHA_SITE_KEY }}
       NEXT_PUBLIC_SKIP_VERIFICATION_STEPS: ${{ secrets.NEXT_PUBLIC_SKIP_VERIFICATION_STEPS }}
       NEXT_PUBLIC_AUTH_SUCCESS_REDIRECT: ${{ secrets.NEXT_PUBLIC_AUTH_SUCCESS_REDIRECT }}
+      NEXT_PUBLIC_AUTH_REGISTER_REDIRECT: ${{ secrets.NEXT_PUBLIC_AUTH_REGISTER_REDIRECT }}
+      TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+      TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+      TWILIO_WHATSAPP_FROM: ${{ secrets.TWILIO_WHATSAPP_FROM }}
+      TWILIO_WHATSAPP_TO: ${{ secrets.TWILIO_WHATSAPP_TO }}
     steps:
       - name: Mask sensitive values
         run: |
@@ -92,3 +97,42 @@ jobs:
           cd devops/${REPO_NAME}
           chmod +x deploy.sh
           bash deploy.sh
+      
+      - name: Send WhatsApp notification on success
+        if: success()
+        run: |
+          COMMIT_SHA="${{ steps.vars.outputs.sha_short }}"
+          ENV_TAG="${{ steps.vars.outputs.env_tag }}"
+          MESSAGE="✅ Build Successful\n\nRepo: ${REPO_NAME}\nBranch: ${BRANCH}\nCommit: ${COMMIT_SHA}\nEnvironment: ${ENV_TAG}\nTime: $(date)\n\nNo errors detected."
+          
+          curl -X POST https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json \
+            -d "From=${TWILIO_WHATSAPP_FROM}" \
+            -d "To=${TWILIO_WHATSAPP_TO}" \
+            -d "Body=${MESSAGE}" \
+            -u "${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}"
+      
+      - name: Send WhatsApp notification on build failure
+        if: failure() && steps.vars.conclusion == 'success'
+        run: |
+          COMMIT_SHA="${{ steps.vars.outputs.sha_short }}"
+          ENV_TAG="${{ steps.vars.outputs.env_tag }}"
+          MESSAGE="❌ Build Failed\n\nRepo: ${REPO_NAME}\nBranch: ${BRANCH}\nCommit: ${COMMIT_SHA}\nEnvironment: ${ENV_TAG}\n\nFailed Step: Execute build script\n\nCheck logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          
+          curl -X POST https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json \
+            -d "From=${TWILIO_WHATSAPP_FROM}" \
+            -d "To=${TWILIO_WHATSAPP_TO}" \
+            -d "Body=${MESSAGE}" \
+            -u "${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}"
+      
+      - name: Send WhatsApp notification on deployment failure
+        if: failure()
+        run: |
+          COMMIT_SHA="${{ steps.vars.outputs.sha_short }}"
+          ENV_TAG="${{ steps.vars.outputs.env_tag }}"
+          MESSAGE="❌ Deployment Failed\n\nRepo: ${REPO_NAME}\nBranch: ${BRANCH}\nCommit: ${COMMIT_SHA}\nEnvironment: ${ENV_TAG}\n\nFailed Step: Execute deployment script\n\nCheck logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          
+          curl -X POST https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json \
+            -d "From=${TWILIO_WHATSAPP_FROM}" \
+            -d "To=${TWILIO_WHATSAPP_TO}" \
+            -d "Body=${MESSAGE}" \
+            -u "${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}"
