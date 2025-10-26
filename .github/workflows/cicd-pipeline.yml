@@ -15,6 +15,13 @@ on:
         description: 'Branch to build'
         required: true
         default: 'dev'
+      custom_tag:
+        description: 'Custom tag (optional - overrides branch-based tag)'
+        required: false
+      devops_owner:
+        description: 'DevOps repository owner/organization'
+        required: false
+        default: 'karimzakzouk'
       devops_repo:
         description: 'DevOps repository name'
         required: false
@@ -34,6 +41,8 @@ jobs:
       OWNER_NAME: ${{ github.event.client_payload.owner_name || github.event.inputs.owner_name }}
       REPO_NAME: ${{ github.event.client_payload.repo_name || github.event.inputs.repo_name }}
       BRANCH: ${{ github.event.client_payload.branch || github.event.inputs.branch || 'main' }}
+      CUSTOM_TAG: ${{ github.event.client_payload.custom_tag || github.event.inputs.custom_tag }}
+      DEVOPS_OWNER: ${{ github.event.client_payload.devops_owner || github.event.inputs.devops_owner || github.event.client_payload.owner_name || github.event.inputs.owner_name }}
       DEVOPS_REPO: ${{ github.event.client_payload.devops_repo || github.event.inputs.devops_repo || 'helm' }}
       DEVOPS_BRANCH: ${{ github.event.client_payload.devops_branch || github.event.inputs.devops_branch || 'main' }}
       GITHUB_PAT: ${{ secrets.PAT_GITHUB }}
@@ -59,6 +68,7 @@ jobs:
         run: |
           echo "::add-mask::${OWNER_NAME}"
           echo "::add-mask::${REPO_NAME}"
+          echo "::add-mask::${DEVOPS_OWNER}"
           echo "::add-mask::${DEVOPS_REPO}"
           echo "::add-mask::${GITHUB_PAT}"
           echo "::add-mask::${DOCKER_USER}"
@@ -79,7 +89,12 @@ jobs:
         run: |
           cd app
           echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-          if [ "${BRANCH}" = "main" ]; then
+          
+          # Use custom tag if provided, otherwise derive from branch
+          if [ -n "${CUSTOM_TAG}" ]; then
+            echo "env_tag=${CUSTOM_TAG}" >> $GITHUB_OUTPUT
+            echo "moving_tag=${CUSTOM_TAG}" >> $GITHUB_OUTPUT
+          elif [ "${BRANCH}" = "main" ]; then
             echo "env_tag=prod" >> $GITHUB_OUTPUT
             echo "moving_tag=latest" >> $GITHUB_OUTPUT
           elif [ "${BRANCH}" = "dev" ]; then
@@ -92,7 +107,7 @@ jobs:
 
       - name: Clone devops repo (silent)
         run: |
-          git clone -q https://${GITHUB_PAT}@github.com/${OWNER_NAME}/${DEVOPS_REPO}.git devops
+          git clone -q https://${GITHUB_PAT}@github.com/${DEVOPS_OWNER}/${DEVOPS_REPO}.git devops
           cd devops
           git checkout -q ${DEVOPS_BRANCH}
       
