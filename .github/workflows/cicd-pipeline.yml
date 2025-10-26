@@ -2,6 +2,27 @@ name: Universal Docker CI
 on:
   repository_dispatch:
     types: [trigger-build]
+  workflow_dispatch:
+    inputs:
+      owner_name:
+        description: 'GitHub owner/organization name'
+        required: true
+        default: 'karimzakzouk'
+      repo_name:
+        description: 'Repository name (backend/frontend/cross-platform)'
+        required: true
+      branch:
+        description: 'Branch to build'
+        required: true
+        default: 'dev'
+      devops_repo:
+        description: 'DevOps repository name'
+        required: false
+        default: 'helm'
+      devops_branch:
+        description: 'DevOps repository branch'
+        required: false
+        default: 'main'
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -10,11 +31,11 @@ jobs:
       env_tag: ${{ steps.vars.outputs.env_tag }}
       moving_tag: ${{ steps.vars.outputs.moving_tag }}
     env:
-      OWNER_NAME: ${{ github.event.client_payload.owner_name }}
-      REPO_NAME: ${{ github.event.client_payload.repo_name }}
-      BRANCH: ${{ github.event.client_payload.branch || 'main' }}
-      DEVOPS_REPO: ${{ github.event.client_payload.devops_repo || 'devops' }}
-      DEVOPS_BRANCH: ${{ github.event.client_payload.devops_branch || 'main' }}
+      OWNER_NAME: ${{ github.event.client_payload.owner_name || github.event.inputs.owner_name }}
+      REPO_NAME: ${{ github.event.client_payload.repo_name || github.event.inputs.repo_name }}
+      BRANCH: ${{ github.event.client_payload.branch || github.event.inputs.branch || 'main' }}
+      DEVOPS_REPO: ${{ github.event.client_payload.devops_repo || github.event.inputs.devops_repo || 'helm' }}
+      DEVOPS_BRANCH: ${{ github.event.client_payload.devops_branch || github.event.inputs.devops_branch || 'main' }}
       GITHUB_PAT: ${{ secrets.PAT_GITHUB }}
       DOCKER_USER: ${{ secrets.DOCKER_USERNAME }}
       DOCKER_PASS: ${{ secrets.DOCKER_PASSWORD }}
