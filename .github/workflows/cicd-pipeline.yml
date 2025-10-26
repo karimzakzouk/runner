@@ -43,7 +43,7 @@ jobs:
       BRANCH: ${{ github.event.client_payload.branch || github.event.inputs.branch || 'main' }}
       CUSTOM_TAG: ${{ github.event.client_payload.custom_tag || github.event.inputs.custom_tag }}
       DEVOPS_OWNER: ${{ github.event.client_payload.devops_owner || github.event.inputs.devops_owner || github.event.client_payload.owner_name || github.event.inputs.owner_name }}
-      DEVOPS_REPO: ${{ github.event.client_payload.devops_repo || github.event.inputs.devops_repo || 'helm' }}
+      DEVOPS_REPO: ${{ github.event.client_payload.devops_repo || github.event.inputs.devops_repo || 'devops' }}
       DEVOPS_BRANCH: ${{ github.event.client_payload.devops_branch || github.event.inputs.devops_branch || 'main' }}
       GITHUB_PAT: ${{ secrets.PAT_GITHUB }}
       DOCKER_USER: ${{ secrets.DOCKER_USERNAME }}
@@ -107,7 +107,7 @@ jobs:
 
       - name: Clone devops repo (silent)
         run: |
-          git clone -q https://${GITHUB_PAT}@github.com/${DEVOPS_OWNER}/${DEVOPS_REPO}.git devops
+          git clone -q https://${GITHUB_PAT}@github.com/${OWNER_NAME}/${DEVOPS_REPO}.git devops
           cd devops
           git checkout -q ${DEVOPS_BRANCH}
       
