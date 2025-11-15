@@ -125,11 +125,14 @@ jobs:
       
       - name: Update Helm Charts
         env:
-          MOVING_TAG: ${{ steps.vars.outputs.moving_tag }}
+          COMMIT_TAG: ${{ steps.vars.outputs.sha_short }}
+          ENV_TAG: ${{ steps.vars.outputs.env_tag }}
         run: |
+          # Use commit-based tag (e.g., abc1234-dev) instead of moving tag (e.g., dev)
+          COMMIT_BASED_TAG="${COMMIT_TAG}-${ENV_TAG}"
           cd devops/scripts
           chmod +x update-helm-chart.sh
-          ./update-helm-chart.sh "${REPO_NAME}" "${MOVING_TAG}"
+          ./update-helm-chart.sh "${REPO_NAME}" "${COMMIT_BASED_TAG}"
       
       - name: Send Discord notification on success
         if: success()
