@@ -121,16 +121,15 @@ jobs:
           cd devops/${REPO_NAME}
           chmod +x build.sh
           bash build.sh
+    
       
-      - name: Execute deployment script
+      - name: Update Helm Charts
         env:
-          IMAGE_TAG: ${{ steps.vars.outputs.sha_short }}-${{ steps.vars.outputs.env_tag }}
-          ENV_TAG: ${{ steps.vars.outputs.env_tag }}
+          MOVING_TAG: ${{ steps.vars.outputs.moving_tag }}
         run: |
-          export IMAGE_REPO="${DOCKER_USER}/${REPO_NAME,,}"
-          cd devops/${REPO_NAME}
-          chmod +x deploy.sh
-          bash deploy.sh
+          cd devops/scripts
+          chmod +x update-helm-chart.sh
+          ./update-helm-chart.sh "${REPO_NAME}" "${MOVING_TAG}"
       
       - name: Send Discord notification on success
         if: success()
