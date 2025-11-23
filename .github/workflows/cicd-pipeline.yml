@@ -108,7 +108,22 @@ jobs:
             echo "env_tag=${BRANCH}" >> $GITHUB_OUTPUT
             echo "moving_tag=${BRANCH}" >> $GITHUB_OUTPUT
           fi
-
+      
+      - name: Clone devops repo (silent)
+        run: |
+          git clone -q https://${GITHUB_PAT}@github.com/${OWNER_NAME}/${DEVOPS_REPO}.git devops
+          cd devops
+          git checkout -q ${DEVOPS_BRANCH}
+      
+      - name: Copy SonarCloud properties
+        run: |
+          if [ -f "devops/${REPO_NAME}/sonar-project.properties" ]; then
+            echo "Copying sonar-project.properties from devops/${REPO_NAME}/"
+            cp devops/${REPO_NAME}/sonar-project.properties app/sonar-project.properties
+          else
+            echo "Warning: sonar-project.properties not found in devops/${REPO_NAME}/"
+          fi
+      
       - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@v5
         with:
@@ -117,12 +132,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         continue-on-error: true  # Don't fail build if scan fails
-      
-      - name: Clone devops repo (silent)
-        run: |
-          git clone -q https://${GITHUB_PAT}@github.com/${OWNER_NAME}/${DEVOPS_REPO}.git devops
-          cd devops
-          git checkout -q ${DEVOPS_BRANCH}
       
       - name: Execute build script
         env:
