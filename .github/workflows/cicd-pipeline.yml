@@ -133,6 +133,31 @@ jobs:
             echo "Warning: sonar-project.properties not found in devops/${REPO_NAME}/"
           fi
       
+      - name: Setup Node.js
+        if: env.REPO_NAME == 'backend' || env.REPO_NAME == 'frontend'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Flutter
+        if: env.REPO_NAME == 'cross-platform'
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.0'
+          channel: 'stable'
+          cache: true
+
+      - name: Execute test script
+        run: |
+          if [ -f "devops/${REPO_NAME}/test.sh" ]; then
+            echo "Found test.sh, executing..."
+            cd devops/${REPO_NAME}
+            chmod +x test.sh
+            bash test.sh
+          else
+            echo "No test.sh found for ${REPO_NAME}, skipping tests."
+          fi
+
       - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@v6
         with:
@@ -141,7 +166,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         continue-on-error: true  # Don't fail build if scan fails
-      
+
       - name: Execute build script
         env:
           COMMIT_TAG: ${{ steps.vars.outputs.sha_short }}
