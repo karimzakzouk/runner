@@ -117,9 +117,18 @@ jobs:
       
       - name: Copy SonarCloud properties
         run: |
+          # Determine base directory for SonarQube
+          if [ "${REPO_NAME}" = "cross-platform" ]; then
+            echo "SONAR_BASE_DIR=app/lam7a" >> $GITHUB_ENV
+            TARGET_DIR="app/lam7a"
+          else
+            echo "SONAR_BASE_DIR=app" >> $GITHUB_ENV
+            TARGET_DIR="app"
+          fi
+          
           if [ -f "devops/${REPO_NAME}/sonar-project.properties" ]; then
-            echo "Copying sonar-project.properties from devops/${REPO_NAME}/"
-            cp devops/${REPO_NAME}/sonar-project.properties app/sonar-project.properties
+            echo "Copying sonar-project.properties from devops/${REPO_NAME}/ to ${TARGET_DIR}/"
+            cp devops/${REPO_NAME}/sonar-project.properties "${TARGET_DIR}/sonar-project.properties"
           else
             echo "Warning: sonar-project.properties not found in devops/${REPO_NAME}/"
           fi
@@ -127,7 +136,7 @@ jobs:
       - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@v6
         with:
-          projectBaseDir: app
+          projectBaseDir: ${{ env.SONAR_BASE_DIR }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
