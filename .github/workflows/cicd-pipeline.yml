@@ -132,13 +132,21 @@ jobs:
           else
             echo "Warning: sonar-project.properties not found in devops/${REPO_NAME}/"
           fi
-
+          
+      - name: Setup Node.js
+        if: env.REPO_NAME == 'frontend' || env.REPO_NAME == 'backend'
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'npm'
       - name: Setup Flutter
         if: env.REPO_NAME == 'cross-platform'
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.35.5'
           channel: 'stable'
+          cache: true
+
       
       - name: Execute build script
         env:
