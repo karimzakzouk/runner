@@ -132,6 +132,13 @@ jobs:
           else
             echo "Warning: sonar-project.properties not found in devops/${REPO_NAME}/"
           fi
+
+      - name: Setup Flutter
+        if: env.REPO_NAME == 'cross-platform'
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
       
       - name: Execute build script
         env:
